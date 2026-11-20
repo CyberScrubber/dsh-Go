@@ -1,0 +1,139 @@
+# Build a privacy APK entirely on GitHub's runners. Nothing is built locally:
+# download the APK artifact, install it, delete the zip.
+#
+# GitHub only shows a workflow_dispatch workflow once its file exists on the
+# default branch. Put this file on main once, then run it with --ref privacy.
+#
+#   gh workflow run privacy-apk.yml --ref privacy -f version=1.2.1
+#   gh run list --workflow privacy-apk.yml
+#   gh run download <run-id> -n dsh-go-privacy-arm64-1.2.1
+#
+# Signing: without the optional secrets this is debug-signed (uninstall the
+# official app first). For a stable upgrade key, add:
+#   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS,
+#   ANDROID_KEY_PASSWORD
+# See privacy/CI.md.
+name: Privacy APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: versionName (must be higher than the installed version)
+        required: true
+        default: 1.2.1
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: privacy-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: 3.47.7
+  GRADLE_VERSION: 9.3.1
+  NDK_VERSION: 28.2.13676358
+
+jobs:
+  runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Restore the download cache
+        id: cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: runtime/.cache
+          key: runtime-downloads-v1-${{ hashFiles('runtime/build-runtime.sh', 'runtime/locks/**') }}
+          restore-keys: runtime-downloads-v1-
+      - name: Build the arm64 runtime
+        run: runtime/build-runtime.sh arm64-v8a
+      - name: Check the bundle
+        run: python3 -I tooling/check_runtime_bundle.py arm64
+      - name: Save the download cache
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: runtime/.cache
+          key: ${{ steps.cache.outputs.cache-primary-key }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: privacy-runtime-arm64-v8a
+          path: runtime/out/arm64-v8a
+          retention-days: 3
+          compression-level: 0
+          if-no-files-found: error
+
+  apk:
+    needs: runtime
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+
+      - name: Download the runtime built by this run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download "${{ github.run_id }}" -n privacy-runtime-arm64-v8a -D runtime/out/arm64-v8a
+          python3 -I tooling/check_runtime_bundle.py arm64
+
+      - name: Install the pinned NDK
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" >/dev/null
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+
+      - name: Point Gradle at the runner SDK
+        run: |
+          printf 'sdk.dir=%s\nflutter.sdk=%s\n' "$ANDROID_HOME" "$FLUTTER_ROOT" > app/android/local.properties
+
+      - name: Configure signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/dshgo.jks"
+            cat > app/android/key.properties <<EOF
+          storeFile=$RUNNER_TEMP/dshgo.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+          else
+            echo "No signing secrets; Gradle will use the debug key."
+          fi
+
+      - name: Build the privacy APK
+        run: |
+          (cd app && flutter pub get)
+          bash privacy/check.sh
+          privacy/build.sh -f arm64 --build-name "${{ inputs.version }}"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dsh-go-privacy-arm64-${{ inputs.version }}
+          path: app/build/app/outputs/flutter-apk/app-arm64-release.apk
+          retention-days: 3
+          if-no-files-found: error
