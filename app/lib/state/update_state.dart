@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../privacy/privacy_build.dart' show privacyBuild;
 import '../update/checker.dart';
 import '../update/downloader.dart';
 import '../update/installer.dart';
@@ -419,8 +420,9 @@ class AppUpdateController extends Notifier<AppUpdateState> {
       check: latest != null ? UpdateCheckPhase.available : UpdateCheckPhase.idle,
       patchFailedVersion: () => prefs.getString(_patchFailedKey),
     );
+    _privacyOff();
     // No APK installer on this build: there is no self-update journal to read.
-    if (installable) await reconcileSelfUpdate();
+    if (installable && !privacyBuild) await reconcileSelfUpdate();
     if (ref.mounted) unawaited(_hashIfPatched());
   }
 
@@ -577,6 +579,20 @@ class AppUpdateController extends Notifier<AppUpdateState> {
       latest: () => latest,
       check: latest != null ? UpdateCheckPhase.available : UpdateCheckPhase.idle,
     );
+    _privacyOff();
+  }
+
+  /// privacy: no update feed, no cached offer, no automatic or manual check.
+  /// The APK is updated by sideloading; the version display stays.
+  void _privacyOff() {
+    if (!privacyBuild) return;
+    state = state.copyWith(
+      installable: false,
+      noticeOnly: false,
+      autoCheck: false,
+      latest: () => null,
+      check: UpdateCheckPhase.idle,
+    );
   }
 
   Future<void> _cleanDownloads() async {
@@ -621,6 +637,7 @@ class AppUpdateController extends Notifier<AppUpdateState> {
   /// The launch check: runs only when enabled and due ([isAutoCheckDue]).
   /// True when the caller should offer the update (newer and not skipped).
   Future<bool> autoCheckIfDue() async {
+    if (privacyBuild) return false;
     await ready;
     final prefs = _prefs;
     if (!ref.mounted || prefs == null || !state.checkable || !state.autoCheck || state.busy) return false;
@@ -639,6 +656,7 @@ class AppUpdateController extends Notifier<AppUpdateState> {
   /// Asks the sources for the latest release. Concurrent calls share one check;
   /// a running download keeps its release.
   Future<UpdateCheckPhase> check() async {
+    if (privacyBuild) return UpdateCheckPhase.idle;
     await ready;
     if (!ref.mounted || !state.checkable) return UpdateCheckPhase.idle;
     if (state.busy) return state.check;
@@ -771,6 +789,7 @@ class AppUpdateController extends Notifier<AppUpdateState> {
   }
 
   Future<void> setAutoCheck(bool value) async {
+    if (privacyBuild) return;
     state = state.copyWith(autoCheck: value);
     await _prefs?.setBool(_autoKey, value);
   }
@@ -786,7 +805,7 @@ class AppUpdateController extends Notifier<AppUpdateState> {
   // ── Download ───────────────────────────────────────────────────────────────
 
   Future<void> startDownload() async {
-    if (_noticeOnly) return;
+    if (privacyBuild || _noticeOnly) return;
     await ready;
     final release = state.latest;
     final asset = state.asset;
@@ -994,7 +1013,7 @@ class AppUpdateController extends Notifier<AppUpdateState> {
   }
 
   Future<void> install({UpdateInstallRoute route = UpdateInstallRoute.system, int? port}) async {
-    if (_noticeOnly) return;
+    if (privacyBuild || _noticeOnly) return;
     final apk = _apk;
     if (!ref.mounted || apk == null || state.busy) return;
     if (!apk.isFile(state)) {

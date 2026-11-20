@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
+import '../../privacy/privacy_build.dart' show privacyBuild;
 import '../../state/update_state.dart';
 import '../fx/metal/metal_badge.dart';
 import '../settings/settings_widgets.dart';
@@ -22,8 +23,8 @@ class AppUpdateTiles extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final update = ref.watch(appUpdateProvider);
-    // No way to check at all; HarmonyOS checks, and its sheet only offers a page.
-    if (!update.checkable) return const SizedBox.shrink();
+    // privacy: no update network at all; the APK is sideloaded.
+    if (privacyBuild || !update.checkable) return const SizedBox.shrink();
     final controller = ref.read(appUpdateProvider.notifier);
     final tint = this.tint;
     final l10n = context.l10n;

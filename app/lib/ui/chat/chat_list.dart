@@ -22,6 +22,7 @@ import '../../state/app_notes.dart';
 import '../../state/artifacts.dart';
 import '../../state/attachments.dart' show DraftAttachment;
 import '../../state/chat_reveal.dart';
+import '../../privacy/privacy_build.dart' show privacyBuild;
 import '../../state/chat_state.dart';
 import '../../state/connection_state.dart';
 import '../../state/hosts_state.dart' show HostKind, activeHostProvider;
@@ -1406,7 +1407,7 @@ class _ChatListState extends ConsumerState<ChatList> with SingleTickerProviderSt
       return null;
     }
     if (refused) {
-      if (code == 'CLIENT_UPGRADE_REQUIRED' && !wordsForIos && ref.read(activeHostProvider).kind == HostKind.local) {
+      if (!privacyBuild && code == 'CLIENT_UPGRADE_REQUIRED' && !wordsForIos && ref.read(activeHostProvider).kind == HostKind.local) {
         return (label: appL10n.updateCheck, onPressed: () => checkForUpdates(context, ref));
       }
       return widget.onSwitchModel == null ? null : (label: appL10n.chatSwitchModel, onPressed: _switchModel);

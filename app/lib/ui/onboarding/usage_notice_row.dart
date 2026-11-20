@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
 import '../../state/android_features.dart';
+import '../../usage/usage_net.dart' show usageDisabledByBuild;
 import '../../usage/usage_stats.dart';
 import '../settings/settings_widgets.dart';
 import '../theme/theme.dart';
@@ -33,15 +34,16 @@ class _UsageNoticeRowState extends ConsumerState<UsageNoticeRow> {
   @override
   void initState() {
     super.initState();
-    unawaited(ref.read(usageStatsProvider.notifier).markNoticed());
+    if (!usageDisabledByBuild) unawaited(ref.read(usageStatsProvider.notifier).markNoticed());
   }
 
   void _set(bool on) => unawaited(ref.read(usageStatsProvider.notifier).setEnabled(on));
 
   @override
   Widget build(BuildContext context) {
-    // Nothing goes out on HarmonyOS yet, so there is nothing to agree to.
-    if (ref.watch(operatingSystemProvider) == 'ohos') return const SizedBox.shrink();
+    // Nothing goes out on HarmonyOS yet, and a privacy build has nothing to
+    // agree to: both leave the row out.
+    if (usageDisabledByBuild || ref.watch(operatingSystemProvider) == 'ohos') return const SizedBox.shrink();
     final l10n = context.l10n;
     final theme = Theme.of(context);
     final enabled = ref.watch(usageStatsProvider.select((s) => s.enabled));

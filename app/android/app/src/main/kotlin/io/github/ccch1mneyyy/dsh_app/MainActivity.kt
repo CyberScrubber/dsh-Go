@@ -24,6 +24,7 @@ import io.github.ccch1mneyyy.dsh_app.launch.LaunchThemeSync
 import io.github.ccch1mneyyy.dsh_app.links.LinksPlugin
 import io.github.ccch1mneyyy.dsh_app.notify.NotifyPlugin
 import io.github.ccch1mneyyy.dsh_app.phone.PhonePlugin
+import io.github.ccch1mneyyy.dsh_app.privacy.PrivacyBuild
 import io.github.ccch1mneyyy.dsh_app.runtime.LaunchStart
 import io.github.ccch1mneyyy.dsh_app.runtime.RuntimePlugin
 import io.github.ccch1mneyyy.dsh_app.share.SharePlugin
@@ -198,11 +199,15 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "getTimeZoneId" -> result.success(TimeZone.getDefault().id)
                 "initializePairingScanner" -> {
-                    try {
-                        io.github.ccch1mneyyy.dsh_app.mlkit.MlKitRuntime.initialize(applicationContext)
-                        result.success(null)
-                    } catch (_: Exception) {
-                        result.error("scanner_initialization_failed", "The barcode scanner could not be initialized", null)
+                    if (PrivacyBuild.DISABLE_ML_KIT) {
+                        result.error("privacy_mlkit_disabled", "ML Kit is disabled in this build", null)
+                    } else {
+                        try {
+                            io.github.ccch1mneyyy.dsh_app.mlkit.MlKitRuntime.initialize(applicationContext)
+                            result.success(null)
+                        } catch (_: Exception) {
+                            result.error("scanner_initialization_failed", "The barcode scanner could not be initialized", null)
+                        }
                     }
                 }
                 // A browser sign-in finished (a Custom Tab on top of this task): clearing down

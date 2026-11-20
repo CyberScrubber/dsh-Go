@@ -112,7 +112,15 @@ class UsageStatsController extends Notifier<UsageStatsState> {
     try {
       final prefs = await SharedPreferences.getInstance();
       if (!ref.mounted) return;
-      final enabled = prefs.getBool(enabledKey) ?? true;
+      // A privacy build is off whatever an earlier install saved; drop what
+      // that install left so nothing old goes out if this build is ever
+      // rebuilt with the switch back.
+      final enabled = !usageDisabledByBuild && (prefs.getBool(enabledKey) ?? true);
+      if (usageDisabledByBuild) {
+        for (final key in [daysKey, iidKey, iidSinceKey, failedAtKey, closedDayKey, enabledKey]) {
+          await prefs.remove(key);
+        }
+      }
       DateTime? time(String key) => switch (prefs.getInt(key)) {
         final int ms => DateTime.fromMillisecondsSinceEpoch(ms),
         null => null,
@@ -200,6 +208,8 @@ class UsageStatsController extends Notifier<UsageStatsState> {
   Future<void> setEnabled(bool enabled) async {
     await _loaded;
     if (!ref.mounted) return;
+    // A privacy build cannot be turned back on by the preference.
+    if (usageDisabledByBuild) enabled = false;
     state = state.copyWith(enabled: enabled, noticed: true);
     if (!enabled) {
       _ledger = UsageLedger();

@@ -30,6 +30,9 @@ typedef MarketFileFetcher = Future<MarketFile> Function(Uri url, {String? etag})
 
 /// GETs [url], with `If-None-Match: [etag]` when given.
 Future<MarketFile> fetchMarketFile(Uri url, {String? etag}) async {
+  // privacy: the market is not available in this build; no HTTP, even if a
+  // future caller reaches this function directly.
+  if (privacyBuild) throw const MarketFetchException('market disabled');
   final http = HttpClient()
     ..connectionTimeout = const Duration(seconds: 15)
     ..userAgent = 'dsh-app';
@@ -180,6 +183,10 @@ class MarketCatalog {
 
 /// Fetched once per app session (kept in memory); `ref.invalidate` reloads.
 final marketCatalogProvider = FutureProvider<MarketCatalog>((ref) async {
+  // privacy: no market HTTP; an empty catalog keeps callers offline.
+  if (privacyBuild) {
+    return MarketCatalog(MarketIndex(url: Uri.parse(dshfindIndexUrl), title: LocalizedText.plain('')));
+  }
   final index = await ref.watch(marketIndexFetcherProvider)(Uri.parse(dshfindIndexUrl));
   return MarketCatalog(index);
 }, retry: (_, _) => null);
@@ -322,7 +329,13 @@ final marketFileFetcherProvider = Provider<MarketFileFetcher>((ref) => fetchMark
 /// answer: [fetchOfficialMarket]); the chat's 生成 entry reads it too (the
 /// media plugin it offers).
 final officialMarketProvider = FutureProvider<MarketCatalog>(
-  (ref) => ref.watch(officialMarketFetcherProvider)(),
+  (ref) async {
+    // privacy: no official/dshfind/bucket market request.
+    if (privacyBuild) {
+      return MarketCatalog(MarketIndex(url: Uri.parse(officialIndexUrl), title: LocalizedText.plain('')));
+    }
+    return ref.watch(officialMarketFetcherProvider)();
+  },
   retry: (_, _) => null,
 );
 

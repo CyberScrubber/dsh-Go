@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../privacy/privacy_build.dart';
 import '../state/app_info.dart';
 import 'usage_ledger.dart';
 
@@ -16,6 +17,13 @@ import 'usage_ledger.dart';
 /// (HTTPS, or plain HTTP on loopback for a test server). It also turns the
 /// statistics on in a debug or profile build.
 const _endpointOverride = String.fromEnvironment('DSH_USAGE_ENDPOINT');
+
+/// `--dart-define=DSH_USAGE_DISABLED=1` or the privacy build
+/// (`DSH_PRIVACY=1`) hard-disables dsh-go's own anonymous statistics: nothing
+/// is counted, kept or sent, and the preference cannot turn it back on. It
+/// does not touch the engine's own uploads (DSH_TELEMETRY_DISABLED,
+/// session-log-deepseek) or Google ML Kit.
+const usageDisabledByBuild = privacyBuild || bool.fromEnvironment('DSH_USAGE_DISABLED');
 
 /// The share host's endpoint (services/share-worker), contracts v1 to v3.
 final defaultUsageEndpoint = Uri.parse('https://go.dshtui.com/api/usage/v1');
@@ -33,9 +41,10 @@ Uri? usageEndpointFrom(String text) {
 
 /// Whether this build counts and reports at all: release builds, and builds
 /// pointed at a test endpoint. Debug runs and tests stay out of the numbers
-/// (tests switch it on where they check it).
+/// (tests switch it on where they check it). A privacy build
+/// (`DSH_USAGE_DISABLED=1`) stays off whatever else is true.
 abstract final class UsageBuild {
-  static bool active = kReleaseMode || usageEndpointFrom(_endpointOverride) != null;
+  static bool active = !usageDisabledByBuild && (kReleaseMode || usageEndpointFrom(_endpointOverride) != null);
 }
 
 /// One POST; a seam so tests never touch the network.

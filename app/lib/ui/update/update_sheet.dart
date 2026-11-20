@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/l10n.dart';
+import '../../privacy/privacy_build.dart' show privacyBuild;
 import '../../state/star_prompt.dart' show starPromptGateProvider, starPromptProvider;
 import '../../state/update_state.dart';
 import '../../update/release.dart' show releaseNotesFor;
@@ -31,6 +32,8 @@ Future<void> showUpdateSheet(BuildContext context) =>
 /// Looks for an update on request (设置 → 关于): opens the sheet when there is
 /// one, otherwise says so in a snack bar.
 Future<void> checkForUpdates(BuildContext context, WidgetRef ref) async {
+  // privacy: the app never asks an update feed anything.
+  if (privacyBuild) return;
   final controller = ref.read(appUpdateProvider.notifier);
   await controller.ready;
   if (!context.mounted) return;

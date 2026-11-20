@@ -9,6 +9,7 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 import io.github.ccch1mneyyy.dsh_app.mlkit.MlKitRuntime
+import io.github.ccch1mneyyy.dsh_app.privacy.PrivacyBuild
 import java.util.concurrent.Executor
 
 /** The OCR SDK entry; host construction and settings do not instantiate this class. */
@@ -44,6 +45,7 @@ internal class MlKitSession private constructor(private val recognizer: TextReco
         private val DIRECT = Executor { it.run() }
 
         fun create(context: Context): MlKitSession {
+            check(!PrivacyBuild.DISABLE_ML_KIT) { "ML Kit is disabled in this build" }
             MlKitRuntime.initialize(context)
             return MlKitSession(TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build()))
         }

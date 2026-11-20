@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
 import '../../plugins/native/native_state.dart';
+import '../../privacy/privacy_build.dart' show privacyBuild;
 import '../../state/hosts_state.dart';
 import '../../state/plugins_state.dart';
 import '../common/ask_ai.dart';
@@ -33,12 +34,14 @@ class PluginsScreen extends ConsumerStatefulWidget {
 }
 
 class _PluginsScreenState extends ConsumerState<PluginsScreen> {
-  late PluginsTab _tab = widget.initialTab;
+  late PluginsTab _tab;
   bool _refreshing = false;
 
   @override
   void initState() {
     super.initState();
+    // privacy: the market is not available; land on the installed list.
+    _tab = privacyBuild && widget.initialTab == PluginsTab.market ? PluginsTab.installed : widget.initialTab;
     // A list read earlier (the chat page keeps it) may miss what was added
     // since, in the terminal or by the agent: read it again, quietly.
     if (ref.read(installedPluginsProvider).hasValue) {
@@ -110,7 +113,7 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
             child: SegmentedPill<PluginsTab>(
               segments: [
                 PillSegment(PluginsTab.installed, l10n.commonInstalled),
-                PillSegment(PluginsTab.market, l10n.pluginsMarketTitle),
+                if (!privacyBuild) PillSegment(PluginsTab.market, l10n.pluginsMarketTitle),
               ],
               selected: _tab,
               onChanged: (t) => setState(() => _tab = t),
@@ -120,7 +123,9 @@ class _PluginsScreenState extends ConsumerState<PluginsScreen> {
         switch (_tab) {
           PluginsTab.installed when host == null && ref.watch(pluginListViewProvider).value == null =>
             const SliverToBoxAdapter(child: _NotConnected()),
-          PluginsTab.installed => InstalledPluginsSliver(onBrowse: () => setState(() => _tab = PluginsTab.market)),
+          PluginsTab.installed => InstalledPluginsSliver(
+            onBrowse: privacyBuild ? null : () => setState(() => _tab = PluginsTab.market),
+          ),
           PluginsTab.market => const MarketSliver(),
         },
       ],

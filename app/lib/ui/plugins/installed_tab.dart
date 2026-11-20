@@ -26,8 +26,8 @@ import 'plugins_screen.dart';
 class InstalledPluginsSliver extends ConsumerStatefulWidget {
   const InstalledPluginsSliver({super.key, required this.onBrowse});
 
-  /// Switches to the market tab.
-  final VoidCallback onBrowse;
+  /// Switches to the market tab; null when this build has no market.
+  final VoidCallback? onBrowse;
 
   @override
   ConsumerState<InstalledPluginsSliver> createState() => _InstalledPluginsSliverState();
@@ -298,7 +298,7 @@ class _PendingTile extends ConsumerWidget {
 class _EmptyInstalled extends StatelessWidget {
   const _EmptyInstalled({required this.onBrowse});
 
-  final VoidCallback onBrowse;
+  final VoidCallback? onBrowse;
 
   @override
   Widget build(BuildContext context) {
@@ -307,7 +307,7 @@ class _EmptyInstalled extends StatelessWidget {
       art: const FeatureTile(FeatureKind.plugins, size: FeatureTile.empty),
       title: l10n.pluginsNoThirdParty,
       message: l10n.pluginsPluginsDescription,
-      actionLabel: l10n.pluginsBrowseMarket,
+      actionLabel: onBrowse == null ? null : l10n.pluginsBrowseMarket,
       onAction: onBrowse,
       padding: const EdgeInsets.fromLTRB(32, 24, 32, 8),
     );

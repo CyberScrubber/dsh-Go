@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../l10n/l10n.dart';
+import '../../privacy/privacy_build.dart' show privacyBuild;
 import '../../runtime/local_footprint.dart';
 import '../../runtime/runtime_bridge.dart';
 import '../../runtime/runtime_state.dart';
@@ -817,6 +818,8 @@ class _PhoneControlScreenState extends ConsumerState<PhoneControlScreen> {
   }
 
   Widget _localOcr(PhoneState state) {
+    // privacy: ML Kit has no analytics opt-out; this build does not offer OCR.
+    if (privacyBuild) return const SizedBox.shrink();
     final enabled = state.policies?.localOcrEnabled;
     final l10n = context.l10n;
     return ListPageCard(

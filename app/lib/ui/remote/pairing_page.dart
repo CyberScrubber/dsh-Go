@@ -16,6 +16,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../l10n/l10n.dart';
+import '../../privacy/privacy_build.dart' show privacyBuild;
 import '../../remote/relay/relay_backend.dart';
 import '../../state/account_state.dart';
 import '../../state/android_features.dart' show operatingSystemProvider;
@@ -32,6 +33,9 @@ import 'host_key_dialog.dart' show activateHost;
 typedef PairingScannerBuilder = Widget Function(BuildContext context, ValueChanged<String> onCode);
 
 final pairingScannerProvider = Provider<PairingScannerBuilder>((ref) {
+  // privacy: ML Kit has no analytics opt-out, so this build never opens the
+  // camera. The paste-link path below still pairs a computer.
+  if (privacyBuild) return (context, onCode) => const _PrivacyScanner();
   // HarmonyOS has no mobile_scanner: the system scan page reads the code there.
   if (ref.watch(operatingSystemProvider) == 'ohos') {
     return (context, onCode) => _SystemScanner(onCode: onCode);
@@ -256,7 +260,7 @@ class _ScanStep extends ConsumerWidget {
         ),
         const SizedBox(height: 14),
         Text(
-          l10n.remotePairScanHint,
+          privacyBuild ? l10n.remoteUnavailable : l10n.remotePairScanHint,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -587,6 +591,20 @@ class _FailedStep extends ConsumerWidget {
 }
 
 // ── The camera ──────────────────────────────────────────────────────────────
+
+/// privacy: no camera, no ML Kit. The paste-link button under it still works.
+class _PrivacyScanner extends StatelessWidget {
+  const _PrivacyScanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = DshColors.of(context);
+    return ColoredBox(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Center(child: Icon(AppIcons.qrCode, size: 48, color: colors.textTertiary)),
+    );
+  }
+}
 
 class _CameraScanner extends StatefulWidget {
   const _CameraScanner({required this.onCode});

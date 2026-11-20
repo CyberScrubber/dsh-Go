@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
+import '../../privacy/privacy_build.dart' show privacyBuild;
 import '../../state/credential_recovery.dart';
 import '../../state/engine_settings_state.dart';
 import '../engine_settings/namespace_copy.dart';
@@ -53,18 +54,19 @@ class PrivacyPage extends ConsumerWidget {
             ],
           ),
         const UsageStatsSection(),
-        SettingsSection(
-          title: l10n.phoneLocalOcrTitle,
-          footer: Text('${l10n.phoneLocalOcrDisclosure}\n\n${l10n.phoneLocalOcrDetails}'),
-          children: [
-            ListTile(
-              title: Text(l10n.phoneLocalOcrTitle),
-              onTap: () => unawaited(Navigator.of(context).push<void>(
-                MaterialPageRoute<void>(builder: (_) => const PhoneControlScreen()),
-              )),
-            ),
-          ],
-        ),
+        if (!privacyBuild)
+          SettingsSection(
+            title: l10n.phoneLocalOcrTitle,
+            footer: Text('${l10n.phoneLocalOcrDisclosure}\n\n${l10n.phoneLocalOcrDetails}'),
+            children: [
+              ListTile(
+                title: Text(l10n.phoneLocalOcrTitle),
+                onTap: () => unawaited(Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(builder: (_) => const PhoneControlScreen()),
+                )),
+              ),
+            ],
+          ),
         if (engine != null && engine.served(logNamespace))
           ...schemaFormGroups([
             SchemaFormSection(

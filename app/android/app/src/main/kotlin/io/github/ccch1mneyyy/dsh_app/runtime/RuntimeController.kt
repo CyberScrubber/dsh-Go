@@ -12,6 +12,7 @@ import android.os.Looper
 import android.os.SystemClock
 import io.github.ccch1mneyyy.dsh_app.phone.PhoneControl
 import io.github.ccch1mneyyy.dsh_app.phone.DiagnosticsTool
+import io.github.ccch1mneyyy.dsh_app.privacy.PrivacyBuild
 import org.json.JSONArray
 import org.json.JSONObject
 import io.github.ccch1mneyyy.dsh_app.phone.skills.PhoneSkillRoute
@@ -548,6 +549,10 @@ class RuntimeController private constructor(private val app: Context) : DshProce
                         null
                     }
                 }
+                // Privacy build: upstream dsh turns its OTel session-telemetry
+                // row off when this is non-empty. Official API requests (and
+                // their session-log field) are not affected.
+                if (PrivacyBuild.DISABLE_ENGINE_TELEMETRY) env["DSH_TELEMETRY_DISABLED"] = "1"
                 // startProcess advances runGen under this same monitor. Publish only while
                 // this queued launch still owns that generation; once published, its non-null
                 // process prevents another start from advancing the generation underneath it.

@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/l10n.dart';
 import '../../state/android_features.dart';
+import '../../usage/usage_net.dart' show usageDisabledByBuild;
 import '../../usage/usage_stats.dart';
 import 'settings_widgets.dart';
 
@@ -22,8 +23,9 @@ class _UsageStatsSectionState extends ConsumerState<UsageStatsSection> {
   @override
   void initState() {
     super.initState();
-    // The switch and its sentence on screen count as being told.
-    unawaited(ref.read(usageStatsProvider.notifier).markNoticed());
+    // The switch and its sentence on screen count as being told. A privacy
+    // build has no switch to agree to.
+    if (!usageDisabledByBuild) unawaited(ref.read(usageStatsProvider.notifier).markNoticed());
   }
 
   @override
@@ -32,14 +34,15 @@ class _UsageStatsSectionState extends ConsumerState<UsageStatsSection> {
     final enabled = ref.watch(usageStatsProvider.select((s) => s.enabled));
     // Its report isn't in a shape the server takes yet: every day would be dropped.
     final ohos = ref.watch(operatingSystemProvider) == 'ohos';
+    final forcedOff = usageDisabledByBuild;
     return SettingsSection(
       title: l10n.usageStatsSection,
       footer: Text(ohos ? l10n.harmonyUsageNotSent : l10n.usageStatsFooter),
       children: [
         SettingsSwitchTile(
           spot: Spots.usageStats,
-          value: enabled && !ohos,
-          onChanged: ohos ? null : (on) => unawaited(ref.read(usageStatsProvider.notifier).setEnabled(on)),
+          value: enabled && !ohos && !forcedOff,
+          onChanged: (ohos || forcedOff) ? null : (on) => unawaited(ref.read(usageStatsProvider.notifier).setEnabled(on)),
         ),
       ],
     );

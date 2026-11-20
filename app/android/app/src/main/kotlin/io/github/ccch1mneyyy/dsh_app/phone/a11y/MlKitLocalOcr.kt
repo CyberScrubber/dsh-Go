@@ -3,13 +3,17 @@ package io.github.ccch1mneyyy.dsh_app.phone.a11y
 import android.content.Context
 import android.graphics.Bitmap
 import android.os.SystemClock
+import io.github.ccch1mneyyy.dsh_app.privacy.PrivacyBuild
 import java.util.concurrent.Executors
 
 /** Process owner. Construction/settings never enter ML Kit; only an admitted recognize does. */
 internal class MlKitLocalOcr private constructor(context: Context) : LocalOcr {
     private val app = context.applicationContext
     private val gate = Object()
-    private var switchedOn = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY, true)
+    // privacy: ML Kit collects SDK usage data and has no opt-out, so this
+    // build keeps OCR off and never constructs a recognizer.
+    private var switchedOn = !PrivacyBuild.DISABLE_ML_KIT &&
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY, true)
     private var epoch = 0L
     private var generation: Generation? = null
     private var active: Job? = null
@@ -40,11 +44,12 @@ internal class MlKitLocalOcr private constructor(context: Context) : LocalOcr {
 
     /** Memory publication only. The settings owner separately orders and checks persistence. */
     fun setEnabled(value: Boolean) {
+        val target = !PrivacyBuild.DISABLE_ML_KIT && value
         val closing = synchronized(gate) {
-            if (switchedOn == value) return
-            switchedOn = value
+            if (switchedOn == target) return
+            switchedOn = target
             epoch++
-            if (!value) {
+            if (!target) {
                 generation?.retired = true
                 active?.accepting = false
             }

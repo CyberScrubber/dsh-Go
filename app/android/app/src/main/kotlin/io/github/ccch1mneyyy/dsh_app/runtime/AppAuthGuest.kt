@@ -1,6 +1,7 @@
 package io.github.ccch1mneyyy.dsh_app.runtime
 
 import android.content.Context
+import io.github.ccch1mneyyy.dsh_app.privacy.PrivacyBuild
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
@@ -30,13 +31,28 @@ object AppAuthGuest {
     private const val WEB_PATCH_ARG = "--patch /etc/dsh-app/dsh-web.patch.yml"
     private const val DSH_WEB = "/usr/local/bin/dsh web"
 
-    val PATCH_YAML = """# dsh-app: subscription sign-in (ChatGPT, Claude). The DSH App rewrites this directory at every
+    private const val BASE_PATCH = """# dsh-app: subscription sign-in (ChatGPT, Claude). The DSH App rewrites this directory at every
 # engine start and passes this file with --patch on normal launches (never in safe mode). Edits do
 # not survive.
 - insert:
     - id: dsh-app-auth
       name: $ENTRY
 """
+
+    private const val PRIVACY_PATCH = """
+# privacy: no plugin inventory, no feedback upload or feedback entry. The
+# session-log field stays (the person asked to keep it).
+- id: session-telemetry-otel
+  disabled: true
+- id: plugin-package-inventory-deepseek
+  disabled: true
+- id: command-feedback
+  disabled: true
+- id: message-feedback
+  disabled: true
+"""
+
+    val PATCH_YAML = BASE_PATCH + if (PrivacyBuild.DISABLE_ENGINE_TELEMETRY) PRIVACY_PATCH else ""
 
     /** The launch shell command with the overlay right after the app's own one; null when [arg] is not the `dsh web` launch. */
     fun launchArg(arg: String): String? {
